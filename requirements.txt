@@ -1,0 +1,2 @@
+numpy~=1.19.5
+sortedcontainers~=2.3.0
