@@ -9,6 +9,7 @@ The figure below shows the correlation length at increasing distances from nouns
 
 <img src="images/part1vspart2.png" width="400">
 
+Corpus partition 1 and 2 refer to speech to younger and older children, respectively. 
 
 ## Custom Dependencies
 
