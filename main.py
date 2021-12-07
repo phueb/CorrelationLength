@@ -9,8 +9,10 @@ Notes:
      so that correlation length excludes topical dependencies between words of different sentences in the same document.
 """
 import numpy as np
+import matplotlib.pyplot as plt
+from collections import defaultdict
 
-from preppy import PartitionedPrep as TrainPrep
+from preppy import Prep as TrainPrep
 from preppy.util import make_windows_mat
 
 from correlationlength.io import load_docs, load_cat2probes
@@ -18,51 +20,50 @@ from correlationlength.util import calc_kl_divergence
 
 
 CORPUS_NAME = 'childes-20201026'
-PROBES_NAMES = ['nouns-2972']
-CONTEXT_SIZE = 12
-NUM_PARTS = 1  # must be 1 to include all windows in windows matrix
-SHUFFLE_SENTENCES = True # if not True, document-level dependencies result in very long distance dependencies
+PROBES_NAME = 'nouns-2972'
+CONTEXT_SIZE = 8
+NUM_PARTS = 2  # must be 1 to include all windows in windows matrix
+SHUFFLE_SENTENCES = True  # if not True, document-level dependencies result in very long distance dependencies
 
 # load corpus
 docs = load_docs(CORPUS_NAME, shuffle_sentences=SHUFFLE_SENTENCES)
 prep = TrainPrep(docs,
                  reverse=False,
-                 num_types=None,
-                 num_parts=1,
+                 sliding=False,
+                 num_parts=NUM_PARTS,
                  num_iterations=(1,1),
                  batch_size=1,
                  context_size=CONTEXT_SIZE,
-                 num_evaluations=1,
                  )
 
 # load probes
-cat2probes = load_cat2probes(PROBES_NAMES)
+probes_ = load_cat2probes(PROBES_NAME)
 
-windows_mat = make_windows_mat(prep.store.token_ids, prep.num_windows_in_part, prep.num_tokens_in_window)
+part2y = defaultdict(list)
+for part_id, token_ids in enumerate(prep.reordered_parts):
+    print(f'Partition {part_id + 1}')
 
-# un-conditional probability of words in the whole text
-token_id_types, token_id_counts = np.unique(windows_mat, return_counts=True)
-unconditional_probabilities = token_id_counts / np.sum(token_id_counts)
+    windows_mat = make_windows_mat(token_ids, prep.num_windows_in_part, prep.num_tokens_in_window)
 
-
-for cat, _probes in cat2probes.items():
-
-    print(cat)
-
-    # exclude any probes not in corpus
+    # exclude any probes not in partition
     probes = []
-    for p in _probes:
-        if p not in prep.store.w2id:
+    for p in probes_:
+        if p not in prep.token2id:
             print(f'WARNING: Excluding "{p}".')
         else:
             probes.append(p)
 
     # condition on a subset of words
-    cat_probe_ids = [prep.store.w2id[p] for p in probes]
+    cat_probe_ids = [prep.token2id[p] for p in probes]
     bool_ids = np.isin(windows_mat[:, -1], cat_probe_ids)
 
+    # un-conditional probability of words in the whole text
+    token_id_types, token_id_counts = np.unique(windows_mat, return_counts=True)
+    unconditional_probabilities = token_id_counts / np.sum(token_id_counts)
+
     # kl divergence due to chance
-    col_chance = np.random.choice(prep.store.token_ids, size=np.sum(bool_ids), replace=True)
+    col_chance = np.random.choice(token_ids,  # samples token ids from whole corpus (frequency-sensitive)
+                                  size=np.sum(bool_ids), replace=True)
     outcomes, c = np.unique(col_chance, return_counts=True)
     o2p = dict(zip(outcomes, c / np.sum(c)))
     q_chance = np.array([o2p.setdefault(o, 0) for o in token_id_types])
@@ -78,4 +79,24 @@ for cat, _probes in cat2probes.items():
 
         print(f'distance={CONTEXT_SIZE - n:>2} kl={kl:.3f} {"<" if kl <= kl_chance else ">"} {kl_chance:.3f}')
 
+        part2y[part_id + 1].append(kl)
+
     print()
+
+
+# fig
+fig, ax = plt.subplots(figsize=(6, 4), dpi=300)
+plt.title(f'Correlation Length\nCorpus={CORPUS_NAME}')
+ax.set_ylabel('KL Divergence', fontsize=12)
+ax.set_xlabel(f'Distance from target ({PROBES_NAME})', fontsize=12)
+ax.spines['right'].set_visible(False)
+ax.spines['top'].set_visible(False)
+ax.tick_params(axis='both', which='both', top=False, right=False)
+# plot
+for part, y in part2y.items():
+    y = np.flip(y)[1:]
+    x = np.arange(1, len(y) + 1)
+    ax.plot(x, y, '-', label=f'Corpus Partition {part}')
+plt.yscale('log')
+plt.legend(frameon=False)
+plt.show()
