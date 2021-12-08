@@ -22,7 +22,7 @@ from correlationlength.util import calc_kl_divergence
 CORPUS_NAME = 'childes-20201026'
 PROBES_NAME = 'nouns-2972'
 CONTEXT_SIZE = 8
-NUM_PARTS = 2  # must be 1 to include all windows in windows matrix
+NUM_PARTS = 1  # must be 1 to include all windows in windows matrix
 SHUFFLE_SENTENCES = True  # if not True, document-level dependencies result in very long distance dependencies
 
 # load corpus
@@ -31,10 +31,14 @@ prep = TrainPrep(docs,
                  reverse=False,
                  sliding=False,
                  num_parts=NUM_PARTS,
-                 num_iterations=(1,1),
+                 num_iterations=(1, 1),
                  batch_size=1,
                  context_size=CONTEXT_SIZE,
                  )
+
+# un-conditional probability of words in the whole text
+token_id_types, token_id_counts = np.unique(prep.reordered_windows, return_counts=True)
+unconditional_probabilities = token_id_counts / np.sum(token_id_counts)
 
 # load probes
 probes_ = load_cat2probes(PROBES_NAME)
@@ -56,10 +60,6 @@ for part_id, token_ids in enumerate(prep.reordered_parts):
     # condition on a subset of words
     cat_probe_ids = [prep.token2id[p] for p in probes]
     bool_ids = np.isin(windows_mat[:, -1], cat_probe_ids)
-
-    # un-conditional probability of words in the whole text
-    token_id_types, token_id_counts = np.unique(windows_mat, return_counts=True)
-    unconditional_probabilities = token_id_counts / np.sum(token_id_counts)
 
     # kl divergence due to chance
     col_chance = np.random.choice(token_ids,  # samples token ids from whole corpus (frequency-sensitive)
