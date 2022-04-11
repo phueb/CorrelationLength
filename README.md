@@ -8,7 +8,7 @@ A simple tool to plot the correlation length.
 
 The correlation length is the distance at which inter-word dependence falls to zero. once the distance exceeds the correlation length, it is as if all words are effectively independent. At this point, the conditional entropy equals the entropy.
 
-The figure below shows the correlation length at increasing distances from nouns in a corpus of English child-directed speech:
+The figure below shows that the correlation length for nouns in a corpus of English child-directed speech is approximately 8, where the KL divergence converges on the unconditional entropy.
 
 <img src="images/part1vspart2.png" width="400">
 
