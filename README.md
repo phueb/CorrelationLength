@@ -4,7 +4,10 @@ This repository contains a Python script to estimate the correlation length betw
 
 ## About
 
-A simple tool to plot the correlation length.
+A simple tool to plot the correlation length. 
+
+The correlation length is the distance at which inter-word dependence falls to zero. once the distance exceeds the correlation length, it is as if all words are effectively independent. At this point, the conditional entropy equals the entropy.
+
 The figure below shows the correlation length at increasing distances from nouns in a corpus of English child-directed speech:
 
 <img src="images/part1vspart2.png" width="400">
